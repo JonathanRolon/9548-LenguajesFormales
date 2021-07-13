@@ -710,8 +710,8 @@
 											(recur cod mem (inc cont-prg) (conj pila-dat valor) pila-llam)
 										)
 								  ADD (let [
-											fst (last pila-dat)
-											snd (last (butlast pila-dat))
+											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif (+ fst snd)) pila-llam)
@@ -724,8 +724,8 @@
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif (- minuendo sustraendo)) pila-llam)
 										)
 								  MUL (let [
-											fst (last pila-dat)
-											snd (last (butlast pila-dat))
+								   fst (last (butlast pila-dat))
+											snd			(last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif (* fst snd)) pila-llam)
@@ -738,70 +738,71 @@
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif (quot dividendo divisor)) pila-llam)
 										)
 								  EQ  (let [
-											fst (last pila-dat)
-											snd (last (butlast pila-dat))
+											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (= fst snd) 1 0)) pila-llam)
 									)
 								  NEQ (let [
-											fst (last pila-dat)
-											snd (last (butlast pila-dat))
+											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (not= fst snd) 1 0)) pila-llam)
-									)
+										)
 								  GT  (let [
+								  	fst (last (butlast pila-dat))
 											snd (last pila-dat)
-											fst (last (butlast pila-dat))
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (> fst snd) 1 0)) pila-llam)
-									)
+										)
 								  GTE (let [
-											snd (last pila-dat)
 											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (>= fst snd) 1 0)) pila-llam)
-									)
+										)
 								  LT  (let [
-											snd (last pila-dat)
 											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (< fst snd) 1 0)) pila-llam)
-									)
+										)
 								  LTE (let [
-											snd (last pila-dat)
 											fst (last (butlast pila-dat))
+											snd (last pila-dat)
 											pila-dat-modif (vec (butlast (butlast pila-dat)))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif  (if (<= fst snd) 1 0)) pila-llam)
-									)
+										)
 								  NEG (let [
 											tope (last pila-dat)
 											pila-dat-modif (vec (butlast pila-dat))
 											]
 											(recur cod mem (inc cont-prg) (conj pila-dat-modif (- tope)) pila-llam)
-									)
+										)
 								  ODD (let [
 											tope (last pila-dat)
 											pila-dat-modif (vec (butlast pila-dat))
 											]
-											(recur cod mem (inc cont-prg) (conj pila-dat-modif (if(odd? tope) 1 0)) pila-llam)
-									)
+											(recur cod mem (inc cont-prg) (conj pila-dat-modif (if (odd? tope) 1 0)) pila-llam)
+										)
 								  JMP (recur cod mem (second fetched) pila-dat pila-llam)
 								  JC  (let [
 											valor (last pila-dat)
+											pila-dat-modif (vec (butlast pila-dat))
 										]
-										(cond
-											(zero? valor) (recur cod mem (inc cont-prg) pila-dat pila-llam)
-											:else (recur cod mem (second fetched) pila-dat pila-llam)
+										 (cond
+												(zero? valor) (recur cod mem (inc cont-prg) pila-dat-modif pila-llam)
+												:else (recur cod mem (second fetched) pila-dat-modif pila-llam)
+											)
 										)
-									)
 								  CAL (recur cod mem (second fetched) pila-dat (conj pila-llam (inc cont-prg)))
-								  RET (recur cod mem (last pila-llam) pila-dat pila-llam)
+								  RET (recur cod mem (last pila-llam) pila-dat (vec (butlast pila-llam)))
        )
   )
 )
