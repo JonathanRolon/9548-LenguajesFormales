@@ -67,20 +67,12 @@
 (declare spy)
 
 ;;Funciones propias
-(declare intersect-str-arr)
 (declare pertenece?)
 (declare distl)
 (declare opcode?)
 (declare string-word?)
 (declare contarComillas)
-(declare construir-subvecs-ctx)
-(declare agregar-valor-ctx)
-(declare agregar-tipo-ctx)
-(declare filtrar-no-existentes)
-(declare parsear-vari)
 (declare declaracion-var)
-(declare parsear-prop)
-(declare remover-decl-var)
 (declare gen-con-valor)
 (declare gen-sin-valor)
 (declare buscar-ult-ident)
@@ -88,15 +80,13 @@
 (declare dump-rec)
 (declare operador-relacional?)
 (declare oper-to-ri)
-(declare operador-signo?)
-(declare escanear-expresion)
 (declare oper-aritm-clj?)
 (declare operador-rel-clj?)
 
-;(defn spy
-;  ([x] (do (prn x) x))
-;   ([msg x] (do (print msg) (print ": ") (prn x) x))
-; )
+(defn spy
+  ([x] (do (prn x) x))
+   ([msg x] (do (print msg) (print ": ") (prn x) x))
+ )
 
 (defn -main
   "Interprete de PL/0 en Clojure - 100137 - 95.48 LF"
@@ -143,11 +133,12 @@
                                                            (driver-loop status)))))
                       (= cabeza "") (driver-loop status)
                       :else (do (print "ERROR: ") (println (buscar-mensaje 23)) (flush) (driver-loop status))))
-           (catch Exception e (println "ERROR ->" (clojure.string/trim (clojure.string/upper-case (get (Throwable->map e) :cause)))) (driver-loop status))))
-)
+           (catch Exception e (driver-loop status))))
+   								;(catch Exception e (println "ERROR ->" (clojure.string/trim (clojure.string/upper-case (get (Throwable->map e) :cause)))) (driver-loop status))
+) 
 
-(defn escanear-arch [nom]
-      (map #(let [aux (try (clojure.edn/read-string %) (catch Exception e (symbol %)))] (if (or (number? aux) (string? aux)) aux (symbol %)))
+(defn escanear-arch [nom]			
+									 (map #(let [aux (try (clojure.edn/read-string %) (catch Exception e (symbol %)))] (if (or (number? aux) (string? aux)) aux (symbol %)))
             (remove empty? (with-open [rdr (clojure.java.io/reader nom)]
                                       (flatten (doall (map #(re-seq #"CONST|VAR|PROCEDURE|CALL|BEGIN|END|IF|THEN|WHILE|DO|ODD|READLN|WRITELN|WRITE|\<\=|\>\=|\<\>|\<|\>|\=|\:\=|\(|\)|\.|\,|\;|\+|\-|\*|\/|\'[^\']*\'|\d+|[A-Z][A-Z0-9]*|\!|\"|\#|\$|\%|\&|\'|\@|\?|\^|\:|\[|\\|\]|\_|\{|\||\}|\~" (a-mayusculas-salvo-strings %)) (line-seq rdr)))))))
 )
@@ -169,7 +160,7 @@
 )
 
 (defn dar-error [amb cod]
-  (if (= (estado amb) :sin-errores)
+					(if (= (estado amb) :sin-errores)
       (do (prn)
           (println "ERROR AL INTERPRETAR EL PROGRAMA!")
           (println "*********************************")
@@ -184,6 +175,7 @@
 )
 
 (defn buscar-mensaje [cod]
+
   (case cod
     1 "SE ENCONTRO PREMATURAMENTE EL FIN DEL ARCHIVO:  EOF"
     2 "SE ESPERABA UN PUNTO:  ."
@@ -210,6 +202,15 @@
    23 "COMANDO DESCONOCIDO"
    24 "ERROR DE ESCANEO EN EXPRESION"
    25 "DIVISION POR CERO NO ES POSIBLE"
+   26 "ERROR AL INTENTAR INTERPRETAR RELACIONAL"
+   27 "ERROR AL INTENTAR GENERAR CON AMBIENTE O INSTRUCCION NULA."
+   28 "ERROR AL INTENTAR PARSEAR EXPRESION, SE ESPERABA UN VALOR NO NULO."
+   29 "ERROR AL INTENTAR PARSEAR TERMINO, SE ESPERABA UN VALOR NO NULO."
+   30 "ERROR AL INTENTAR PARSEAR SIGNO, SE ESPERABA UN VALOR NO NULO."
+   31 "ERROR AL INTENTAR INICIALIZAR CONTEXTO LOCAL, SE ESPERABA UN VALOR NO NULO."
+   32 "ERROR AL CONSULTAR DECLARACION LOCAL, SE ESPERABA UN VALOR NO NULO."
+   33 "ERROR AL CONSULTAR PALABRA RESERVADA, SE ESPERABA UN VALOR NO NULO."
+   34 "ERROR AL INTENTAR CONSULTAR POR IDENTIFICADOR, SE ESPERABA UN VALOR NO NULO."
    cod)
 )
 
@@ -260,7 +261,7 @@
   (if (= (estado amb) :sin-errores)
       (if (or (and (symbol? x) (= (simb-actual amb) x)) (x (simb-actual amb)))
           (escanear amb)
-          (dar-error amb cod-err))
+          (dar-error amb	 cod-err))
       amb)
 )
 
@@ -282,7 +283,7 @@
 )
 
 (defn verificar-tipo-var [amb]
-  (verificar-tipo amb #(if (not= 'VAR (second (last %2)))
+  (verificar-tipo  amb #(if (not= 'VAR (second (last %2)))
                            (dar-error %1 17)
                            %1))
 )
@@ -295,7 +296,8 @@
 
 (defn verificar-tipo-const-o-var [amb]
   (verificar-tipo amb #(if (not (contains? (hash-set 'CONST 'VAR) (second (last %2))))
-                           (dar-error %1 19)
+                           ;(dar-error %1 19)
+                           (dar-error amb 19)
                            %1))
 )
 
@@ -312,7 +314,7 @@
 )
 
 (defn inicializar-contexto-global [amb]
-  (if (= (estado amb) :sin-errores)
+  (if (= (estado  amb) :sin-errores)
       (assoc amb 4 [[0] []])           ; [fronteras  tabla]
       amb)
 )
@@ -348,7 +350,8 @@
                 (declaracion-var)
                 (declaraciones-procedures)
                 (fixup-bloque ,,, ini-bloque)
-                (proposicion)))
+                (proposicion)
+                ))
       amb)
 )
 
@@ -443,8 +446,11 @@
   (if (= (estado amb) :sin-errores)
       (if (cadena? (simb-actual amb))
           (-> amb
-              (generar ,,, 'OUT (simb-actual amb))
-              (escanear))
+
+              (generar ,,, 'OUT (simb-actual amb)) 
+              (escanear)
+              
+              )
           (-> amb
               (expresion)
               (generar ,,, 'OUT)))
@@ -469,14 +475,15 @@
               (escanear)
               (escribir-cadena-o-expresion)
               (escribir-mas-cadenas-o-expresiones)
-              (procesar-terminal ,,, (symbol ")") 13))
+              (procesar-terminal ,,, (symbol ")") 13)
+              )
           amb)
       amb)
 )
 
 (defn proposicion [amb]
   (if (= (estado amb) :sin-errores)
-      (if (identificador? (simb-actual amb))
+      (if (identificador? (simb-actual amb))	
           (let [primera-fase (-> amb
                                  (escanear)
                                  (verificar-tipo-var))]
@@ -487,8 +494,8 @@
                           (procesar-terminal ,,, (symbol ":=") 8)
                           (expresion)
                           (generar ,,, 'POP valor)))
-                  primera-fase))
-          (case (simb-actual amb) 
+                  								primera-fase))
+          (case (simb-actual amb)
                 CALL (-> amb
                          (escanear)
                          (procesar-terminal ,,, identificador? 5)
@@ -536,11 +543,14 @@
                          (procesar-terminal ,,, (symbol "(") 12)
                          (escribir-cadena-o-expresion)
                          (escribir-mas-cadenas-o-expresiones)
-                         (procesar-terminal ,,, (symbol ")") 13))
+                         (procesar-terminal ,,, (symbol ")") 13)
+                         )
+
              WRITELN (-> amb
                          (escanear)
                          (procesar-writeln)
-                         (generar ,,, 'NL))
+                         (generar ,,, 'NL)
+                         )
             amb))
       amb)
 )
@@ -872,6 +882,7 @@
 																	"LABEL" "FOR" "TO" "SET" "ODD" "READLN" "WRITELN" "WRITE")
 			]
 			(cond
+				(nil? x) (dar-error ['EOF '() [] :sin-errores] 33)
 				(string-word? (str x)) (or
 								(pertenece? (.toUpperCase (str x)) keywords)
 								(opcode? x)
@@ -898,10 +909,10 @@
             s (str x)
 			]
 			(cond
+							(nil? x)(dar-error ['EOF '() [] :sin-errores] 34)
 							(or (palabra-reservada? s)
             (number? (get numbers (first s))) false 
-													(not= s (apply str (re-seq #"[a-zA-Z0-9]" s)))
-              (nil? x)) false
+													(not= s (apply str (re-seq #"[a-zA-Z0-9]" s)))) false
 				:else true
 			)
 		)
@@ -924,10 +935,11 @@
 
 (defn cadena? [x]
     (cond 
-        (or (symbol? x) 
-        (> (contarComillas x) 2)
-        (nil? x)) false
-        :else (pertenece? x (re-find #"'+(.*)+'" x))
+    				(nil? x) (dar-error ['EOF '() [] :sin-errores] 35)
+        (or  
+        (not= (contarComillas x) 2)) false
+        (and (symbol? x) (= (contarComillas x) 1)) false 
+        :else (pertenece? (str x) (re-find #"'+(.*)+'" (str x)))
     )
 )
 
@@ -951,7 +963,11 @@
 								ult-pos (last (first context))
 								reduce-ctx (subvec (second context) ult-pos)
 						]
-						(if (some true? (map #(pertenece? ident %) reduce-ctx)) true false )
+						(cond
+								(or (nil? ident) (nil? context)) (dar-error ['EOF '() [] :sin-errores] 32)  
+								(some true? (map #(pertenece? ident %) reduce-ctx)) true
+						:else false
+						)
 	))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -965,57 +981,16 @@
 ; user=> (cargar-var-en-tabla '[nil () [VAR X , Y] :sin-errores [[0] [[X VAR 0]]] 1 [[JMP ?]]])
 ; [nil () [VAR X Y] :sin-errores [[0] [[X VAR 0] [Y VAR 1]]] 2 [[JMP ?]]]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn filtrar-no-existentes [original vec-simbol]
-  (let 
-    [tipovec (conj '[] (first vec-simbol))
-    idents (vec (rest vec-simbol))
-    orig-idents (mapv first original)
-  ]
-    (vec (concat tipovec (remove nil? (map #(if (not (pertenece? % orig-idents)) %) idents))))
-  )
-)
-
-(defn agregar-tipo-ctx [arr tipo]
-		(mapv #(conj (conj [] %) tipo) arr)
-)
-
-(defn agregar-valor-ctx [arr valor]
-	(mapv #(conj (first %) (+ (second %) valor)) (mapv #(vec (reverse %)) (map-indexed vector arr)))
-)
-
-(defn construir-subvecs-ctx [vec-simbol valor]
-			(let [
-					tipo (first vec-simbol)
-					idents (vec (rest vec-simbol))
-			]
-						 (agregar-valor-ctx (agregar-tipo-ctx idents tipo) valor)
-			)
-)
-
 (defn cargar-var-en-tabla [amb]
-			(let [
-					snd-subvec-ctx (second (contexto amb))
-					fst-subvec-ctx (first (contexto amb))
-     simb-not-semicolon (vec (remove #(or (= % (symbol ";")) (= % (symbol ","))) (simb-ya-parseados amb)))
-     vec-simbol (filtrar-no-existentes snd-subvec-ctx simb-not-semicolon)
-					estado (estado amb)
-					cont-var (prox-var amb)
-					cont-var-inc (+ (dec (count vec-simbol)) cont-var)
-					snd-subvec-ctx-modif (vec (concat snd-subvec-ctx (construir-subvecs-ctx vec-simbol cont-var)))
-				]
-					(cond 
-								(not= estado :sin-errores) amb
-									:else 
-											[(simb-actual amb) (simb-no-parseados-aun amb) (simb-ya-parseados amb) 
-													estado [fst-subvec-ctx snd-subvec-ctx-modif]
-											  cont-var-inc (bytecode amb)]	
-					)
-			)
-)
+  (cond
+  				(nil? amb)  (dar-error ['EOF '() [] :sin-errores] 1)
+  				(= (estado amb) :sin-errores)
+  						(assoc (assoc amb 4 [((contexto amb) 0) (conj ((contexto amb) 1) [(last (simb-ya-parseados amb)) 'VAR (prox-var amb)])]) 5 (inc (prox-var amb)))
+      :else amb))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Recibe un ambiente y, si su estado no es :sin-errores, lo devuelve intacto. De lo contrario, lo devuelve modificado
-; con el tamano del segundo subvector del vector contexto agregado al final del primer subvector del vector contexto.
+; con el tamaño del segundo subvector del vector contexto agregado al final del primer subvector del vector contexto.
 ; Por ejemplo:
 ; user=> (inicializar-contexto-local '[nil () [] :error [[0] [[X VAR 0] [Y VAR 1] [INI PROCEDURE 1]]] 2 [[JMP ?]]])
 ; [nil () [] :error [[0] [[X VAR 0] [Y VAR 1] [INI PROCEDURE 1]]] 2 [[JMP ?]]]
@@ -1030,7 +1005,8 @@
 					 fst-subvec-ctx-modif (conj fst-subvec-ctx (count snd-subvec-ctx))
 				]
 					(cond 
-								(not= estado :sin-errores) amb
+									(nil? amb) (dar-error ['EOF '() [] :sin-errores] 31)  
+								 (not= estado :sin-errores) amb
 									:else 
 											[(simb-actual amb) (simb-no-parseados-aun amb) (simb-ya-parseados amb) 
 													estado [fst-subvec-ctx-modif snd-subvec-ctx]
@@ -1051,17 +1027,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn declaracion-var [amb]
-		(if (= (estado amb) :sin-errores)
-      (if (= (simb-actual amb) 'VAR)
-          (-> amb
-              (escanear) 
-              (procesar-terminal ,,, identificador? 5)
-              (controlar-duplicado)
-              (cargar-var-en-tabla)
-              (declarar-mas-idents)
-              (procesar-terminal ,,, (symbol ";") 3))
-          amb)
-      amb)
+			(cond 
+					(nil? amb) (dar-error ['EOF '() [] :sin-errores] 1)
+				:else (if (= (estado amb) :sin-errores)
+						      (if (= (simb-actual amb) 'VAR)
+						          (-> amb
+						              (escanear) 
+						              (procesar-terminal ,,, identificador? 5)
+						              (controlar-duplicado)
+						              (cargar-var-en-tabla)
+						              (declarar-mas-idents)
+						              (procesar-terminal ,,, (symbol ";") 3))
+						          amb)
+						      amb)
+				)		
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1088,9 +1067,9 @@
 						vec-bytecode (bytecode amb)
 				]
 					(cond 
+								(or (nil? amb) (nil? unario)) (dar-error ['EOF '() [] :sin-errores] 30) 
 								(or 
 									(not= estado :sin-errores) 
-									(nil? unario)
 									(and (not= unario (symbol "+"))
 									(not= unario (symbol "-")))
 									) amb
@@ -1120,7 +1099,8 @@
 		  			prox-var (prox-var amb)
 		  			bytecode (bytecode amb)
 		  	]
-							(cond 
+							(cond
+									(nil? amb) (dar-error ['EOF '() [] :sin-errores] 29)
 			  				(not= estado :sin-errores) amb
 			  				:else (procesar-mas-factores (factor amb))
 			  		)
@@ -1138,36 +1118,16 @@
 ; user=> (expresion ['- (list (symbol "(") 'X '* 2 '+ 1 (symbol ")") 'END (symbol ".")) ['VAR 'X (symbol ";") 'BEGIN 'X (symbol ":=")] :sin-errores '[[0] [[X VAR 0]]] 1 []])
 ; [END (.) [VAR X ; BEGIN X := - ( X * 2 + 1 )] :sin-errores [[0] [[X VAR 0]]] 1 [[PFM 0] [PFI 2] MUL [PFI 1] ADD NEG]]
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn escanear-expresion 
-					([amb] (escanear-expresion (escanear amb) (simb-no-parseados-aun amb)))
-     ([amb simb-no-pars]
-      (cond 
-							(or (empty? simb-no-pars) (= (first simb-no-pars) 'END)) amb
-							(identificador? (first simb-no-pars)) (recur (factor amb) (rest simb-no-pars))
-							(or (= (str (first simb-no-pars)) "(")
-											(= (str (first simb-no-pars)) ")")) (recur  (escanear amb) (rest simb-no-pars))
-							(or (= (first simb-no-pars) '+) 
-												(= (first simb-no-pars) '-)) 
-                (let [new-amb (procesar-mas-terminos amb)] (
-                   recur new-amb (cons (simb-actual new-amb) (simb-no-parseados-aun new-amb))    
-                ))
-							(or (= (first simb-no-pars) '*) 
-												(= (first simb-no-pars) '/)) (let [new-amb (procesar-mas-factores amb)] 
-                                 (recur new-amb (cons (simb-actual new-amb) 
-                                 															(simb-no-parseados-aun new-amb))))
-						:else (buscar-mensaje 24)
-					)
-    )
-)
-
 (defn expresion [amb]
-	  	(let [
-        signo (simb-actual amb)
-	  					estado (estado amb)
+	  (let [
+        ident  (simb-actual amb)
+	  					estado (estado amb) 
 	  	] (cond
-	  					(not= estado :sin-errores) amb
-	  					:else (generar-signo (escanear-expresion amb) signo)
-	  	)
+	  						(nil? amb) (dar-error ['EOF '() [] :sin-errores] 28)
+	  						(not= estado :sin-errores) amb
+			  				(or (= ident '-) (= ident '+)) (generar-signo (procesar-mas-terminos (termino (escanear amb))) ident)
+			  				:else (procesar-mas-terminos (termino amb))
+			  		)
   	)
 )
 
@@ -1206,19 +1166,15 @@
 		ultimo (last pila)
 		anteult-pos (- (count pila) 2)
 	]
-				(cond
-						(and (> (count pila) 1) 
-										 (and (number? anteultimo) (number? ultimo))
-										 (oper-aritm-clj? op))
-												(try (vec (butlast (assoc pila anteult-pos 
-              (if(and (= op /) (< anteultimo ultimo))
-               (quot anteultimo ultimo)
-               (op anteultimo ultimo)
-              ))))
-             (catch Exception e (buscar-mensaje 25))
-             )								
-						:else pila
-				)
+		(cond
+				(and (> (count pila) 1) (and (number? anteultimo) (number? ultimo)) (oper-aritm-clj? op))
+									(try (vec (butlast (assoc pila anteult-pos 
+            (if(and (= op /) (< anteultimo ultimo))
+             (quot anteultimo ultimo)
+             (op anteultimo ultimo)
+            )))) (catch Exception e (dar-error ['EOF '() [] :sin-errores] 25)))								
+			:else pila
+			)
 	)
 )
 
@@ -1252,16 +1208,13 @@
 		ultimo (last pila)
 		anteult-pos (- (count pila) 2)
 	]
-				(cond
-						(and (> (count pila) 1) 
-										 (and (number? anteultimo) (number? ultimo))
-										 (operador-rel-clj? op))
-												(vec (butlast (assoc pila anteult-pos 
-                         (if (op anteultimo ultimo) 1 0)
-                        )))
-                        							
-						:else pila
-				)
+		(cond
+				(or (nil? op) (nil? pila)) (dar-error ['EOF '() [] :sin-errores] 26)
+				(and (> (count pila) 1) 
+								 (and (number? anteultimo) (number? ultimo))
+								 (operador-rel-clj? op))
+									(vec (butlast (assoc pila anteult-pos (if (op anteultimo ultimo) 1 0))))
+			:else pila)
 	)
 )
 
@@ -1313,34 +1266,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn gen-sin-valor [amb instr]
 		(let [
-	  			inicial (simb-actual amb)
-	  			simb-no-par (simb-no-parseados-aun amb)
-	  			simb-ya-par (simb-ya-parseados amb)
 	  			estado (estado amb)
-	  			contexto (contexto amb)
-	  			prox-var (prox-var amb)
 	  			bytecode (bytecode amb)
 	  	]
+
 	  		(cond 
 	  				(not= estado :sin-errores) amb
-	  				:else [inicial simb-no-par simb-ya-par estado contexto prox-var (conj bytecode instr)]
+	  				:else (assoc amb 6 (conj bytecode instr))
 	  		)
 	  	)
 )
 
 (defn gen-con-valor [amb instr valor]
 (let [
-	  			inicial (simb-actual amb)
-	  			simb-no-par (simb-no-parseados-aun amb)
-	  			simb-ya-par (simb-ya-parseados amb)
-	  			estado (estado amb)
-	  			contexto (contexto amb)
-	  			prox-var (prox-var amb)
 	  			bytecode (bytecode amb)
+	  			estado (estado amb)
 	  	]
 	  		(cond 
 	  				(not= estado :sin-errores) amb
-	  				:else [inicial simb-no-par simb-ya-par estado contexto prox-var (conj bytecode (conj (conj [] instr) valor))]
+	  				:else (assoc amb 6 (conj bytecode (conj (conj [] instr) valor)))
 	  		)
 	  	)
 )
@@ -1348,10 +1292,16 @@
 
 (defn generar
   ([amb instr]
-  		(gen-sin-valor amb instr)
+  		(cond 
+  				(or(nil? amb) (nil? instr)) (dar-error ['EOF '() [] :sin-errores] 27)
+  			:else (gen-sin-valor amb instr)
+  		)
   )
   ([amb instr valor]
-		 (gen-con-valor amb instr valor)
+  		(cond
+  			(or(nil? amb) (nil? instr) (nil? valor)) (dar-error ['EOF '() [] :sin-errores] 27) 
+  			:else (gen-con-valor amb instr valor) 
+  		)
   )
 )
 
@@ -1382,9 +1332,9 @@
 			  			estado (estado amb)
         ]
         (cond
-                (nil? ultimo-ident) (buscar-mensaje 5)
-                :else
-                    (encontrar-coincidencias snd-subvec-ctx ultimo-ident)
+            (or (nil? ultimo-ident) (nil? amb)) (dar-error ['EOF '() [] :sin-errores] 5) 
+            :else
+                (encontrar-coincidencias snd-subvec-ctx ultimo-ident)
 
         )
 		)
@@ -1403,19 +1353,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn fixup [amb ubi] 
 		(let [
-	  			inicial (simb-actual amb)
-	  			simb-no-par (simb-no-parseados-aun amb)
-	  			simb-ya-par (simb-ya-parseados amb)
-	  			estado (estado amb)
-	  			contexto (contexto amb)
-	  			prox-var (prox-var amb)
 	  			bytecode (bytecode amb)
 	  			tamanio (count bytecode)
+	  			estado (estado amb)
 	  	]
-	  		(cond 
+	  		(cond
+	  				(or (nil? amb) (nil? ubi)) (dar-error ['EOF '() [] :sin-errores] 1)
 	  				(not= estado :sin-errores) amb
-	  				:else [inicial simb-no-par simb-ya-par estado contexto prox-var 
-	  											(assoc bytecode ubi ['JMP tamanio])]
+	  				:else (assoc amb 6 (assoc bytecode ubi ['JMP tamanio]))
+	  											
 	  		)
 	  	)
 )
@@ -1449,19 +1395,15 @@
 
 (defn generar-operador-relacional [amb operador]
 		(let [
-					 inicial (simb-actual amb)
-	  			simb-no-par (simb-no-parseados-aun amb)
-	  			simb-ya-par (simb-ya-parseados amb)
 	  			estado (estado amb)
-	  			contexto (contexto amb)
-	  			prox-var (prox-var amb)
 	  			bytecode (bytecode amb)
 		]
 		(cond
+					(or (nil? amb) (nil? operador))(dar-error ['EOF '() [] :sin-errores] 1)
 				(or
 						(not= estado :sin-errores)
 						(not (operador-relacional? operador))) amb
-			:else [inicial simb-no-par simb-ya-par estado contexto prox-var (conj bytecode (oper-to-ri operador))]
+			:else (assoc amb 6 (conj bytecode (oper-to-ri operador)))
 		))
 )
 
@@ -1482,19 +1424,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn generar-signo [amb signo]
 		(let [
-					 inicial (simb-actual amb)
-	  			simb-no-par (simb-no-parseados-aun amb)
-	  			simb-ya-par (simb-ya-parseados amb)
 	  			estado (estado amb)
-	  			contexto (contexto amb)
-	  			prox-var (prox-var amb)
 	  			bytecode (bytecode amb)
 		]
 		(cond
+				(or (nil? amb) (nil? signo))(dar-error ['EOF '() [] :sin-errores] 1)
 				(or
 						(not= estado :sin-errores)
 						(not= signo '-)) amb
-			:else [inicial simb-no-par simb-ya-par estado contexto prox-var (conj bytecode (oper-to-ri signo))]
+			:else (assoc amb 6 (conj bytecode (oper-to-ri signo)))
 		))
 )
 
