@@ -1,0 +1,9 @@
+var X;
+
+begin
+  writeln('Ingresa un numero');
+  readln (X);
+  writeln ('Valor de X antes:', X);
+  ++ X;
+  writeln ('Valor de X ahora:', X)
+end.

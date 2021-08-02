@@ -1,0 +1,9 @@
+var X;
+
+begin
+  X := 0;
+  repeat 
+	while x < 5 do X := X + 1; 
+  until x < 5;
+  writeln('Valor de X: ', X)
+end.

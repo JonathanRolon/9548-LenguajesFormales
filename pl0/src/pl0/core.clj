@@ -83,6 +83,7 @@
 (declare oper-aritm-clj?)
 (declare operador-rel-clj?)
 
+
 (defn spy
   ([x] (do (prn x) x))
    ([msg x] (do (print msg) (print ": ") (prn x) x))
@@ -140,7 +141,7 @@
 (defn escanear-arch [nom]			
 									 (map #(let [aux (try (clojure.edn/read-string %) (catch Exception e (symbol %)))] (if (or (number? aux) (string? aux)) aux (symbol %)))
             (remove empty? (with-open [rdr (clojure.java.io/reader nom)]
-                                      (flatten (doall (map #(re-seq #"CONST|VAR|PROCEDURE|CALL|BEGIN|END|IF|THEN|WHILE|DO|ODD|READLN|WRITELN|WRITE|\<\=|\>\=|\<\>|\<|\>|\=|\:\=|\(|\)|\.|\,|\;|\+|\-|\*|\/|\'[^\']*\'|\d+|[A-Z][A-Z0-9]*|\!|\"|\#|\$|\%|\&|\'|\@|\?|\^|\:|\[|\\|\]|\_|\{|\||\}|\~" (a-mayusculas-salvo-strings %)) (line-seq rdr)))))))
+                                      (flatten (doall (map #(re-seq #"CONST|VAR|PROCEDURE|CALL|BEGIN|END|IF|THEN|WHILE|DO|ODD|READLN|WRITELN|WRITE|SQRT|REPEAT|UNTIL|\<\=|\>\=|\<\>|\<|\>|\=|\:\=|\(|\)|\.|\,|\;|\+\+|\+|\-|\*|\/|\'[^\']*\'|\d+|[A-Z][A-Z0-9]*|\!|\"|\#|\$|\%|\&|\'|\@|\?|\^|\:|\[|\\|\]|\_|\{|\||\}|\~" (a-mayusculas-salvo-strings %)) (line-seq rdr)))))))
 )
 
 (defn listar
@@ -211,6 +212,7 @@
    32 "ERROR AL CONSULTAR DECLARACION LOCAL, SE ESPERABA UN VALOR NO NULO."
    33 "ERROR AL CONSULTAR PALABRA RESERVADA, SE ESPERABA UN VALOR NO NULO."
    34 "ERROR AL INTENTAR CONSULTAR POR IDENTIFICADOR, SE ESPERABA UN VALOR NO NULO."
+   35 "ERROR AL INTENTAR INTERPRETAR LOGICO"
    cod)
 )
 
@@ -258,11 +260,11 @@
 )
 
 (defn procesar-terminal [amb x cod-err]
-  (if (= (estado amb) :sin-errores)
-      (if (or (and (symbol? x) (= (simb-actual amb) x)) (x (simb-actual amb)))
-          (escanear amb)
-          (dar-error amb	 cod-err))
-      amb)
+			(if (= (estado amb) :sin-errores)
+     (if (or (and (symbol? x) (= (simb-actual amb) x)) (x (simb-actual amb)))
+         (escanear amb)
+         (dar-error amb	 cod-err))
+     amb)
 )
 
 (defn controlar-duplicado [amb]
@@ -506,9 +508,9 @@
                          (proposicion)
                          (procesar-mas-propos)
                          (procesar-terminal ,,, 'END 9))
-                  IF (let [primera-fase (-> amb
-                                            (escanear)
-                                            (condicion))]
+               IF (let [primera-fase (-> amb
+                                     (escanear)
+                                     (condicion))]
                            (if (= (estado primera-fase) :sin-errores)
                                (-> primera-fase
                                    (generar ,,, 'JC (+ 2 (count (bytecode primera-fase))))
@@ -523,11 +525,16 @@
                                                   (condicion))]
                                  (if (= (estado segunda-fase) :sin-errores)
                                      (-> segunda-fase
-                                         (generar ,,, 'JC (+ 2 (count (bytecode segunda-fase))))
+                                     				;; Si la condición es verdadera (1) que salte estos dos JMP al DO, sino sigue
+                                         (generar ,,, 'JC (+ 2 (count (bytecode segunda-fase)))) 
+                                         ;; Salta a la proxima instruccion fuera del WHILE DO
                                          (generar ,,, 'JMP '?)
                                          (procesar-terminal ,,, 'DO 11)
+                                         ;; Procesar proposiciones
                                          (proposicion)
+                                         ;; Vuelve a evaluar la condicion
                                          (generar ,,, 'JMP (count (bytecode primera-fase)))
+                                         ;; Para fixear el JMP ? que salta fuera del WHILE DO
                                          (fixup ,,, (inc (count (bytecode segunda-fase)))))
                                      segunda-fase)))
               READLN (-> amb
@@ -551,6 +558,42 @@
                          (procesar-writeln)
                          (generar ,,, 'NL)
                          )
+             ++ ( -> amb
+             											(escanear)
+             											(procesar-terminal ,,, identificador? 5)
+             											(generar ,,, 'PFM (last (last (buscar-coincidencias amb))))
+             											(generar ,,, 'PFI 1)
+             											(generar ,,, 'ADD)
+             											(generar ,,, 'POP (last (last (buscar-coincidencias amb))))
+             					)
+            SQRT ( -> amb
+          							(escanear)
+            						(procesar-terminal ,,, identificador? 5)
+            						(generar ,,, 'PFM (last (last (buscar-coincidencias amb))))
+            						(generar ,,, 'SQRT)
+            						(generar ,,, 'POP (last (last (buscar-coincidencias amb))))
+          				)
+            REPEAT (let [primera-fase (-> amb (escanear))] 
+            								(;; Procesar proposiciones
+            									let [modif-primera-fase (procesar-terminal 
+            																																(procesar-mas-propos 
+            																																(proposicion primera-fase)) 
+            																																'UNTIL 36)]
+
+                      (let [segunda-fase (-> modif-primera-fase
+                                                  (condicion))]
+                        (if (= (estado segunda-fase) :sin-errores)
+                            (-> segunda-fase
+                            				;; Si la condición es verdadera (1) que salte al REPEAT, sino sigue
+                                (generar ,,, 'JC (count (bytecode primera-fase)))
+                                ;; Salta a la proxima instruccion fuera del REPEAT UNTIL
+                                (generar ,,, 'JMP '?)
+                                ;; Para fixear el JMP ? que salta fuera del REPEAT UNTIL
+                                (fixup ,,, (inc (count (bytecode segunda-fase))))
+                                )
+                            segunda-fase))  
+            								)
+            		)
             amb))
       amb)
 )
@@ -642,6 +685,7 @@
                                                (escanear)
                                                (expresion)
                                                (procesar-terminal ,,, (symbol ")") 13))
+
         :else (dar-error amb 15))
       amb)
 )
@@ -813,6 +857,14 @@
 										)
 								  CAL (recur cod mem (second fetched) pila-dat (conj pila-llam (inc cont-prg)))
 								  RET (recur cod mem (last pila-llam) pila-dat (vec (butlast pila-llam)))
+								  SQRT (let [
+											valor (last pila-dat)
+											pila-dat-modif (vec (butlast pila-dat))
+										]
+										 (cond
+												:else (recur cod mem (inc cont-prg) (conj pila-dat-modif (Math/sqrt valor)) pila-llam)
+											)
+										)
        )
   )
 )
@@ -879,7 +931,7 @@
 						keywords '("PROGRAM" "VAR" "CONST" "PROCEDURE" "CALL" "BEGIN" 
 																	"END" "IF" "ELSE" "THEN" "RECORD" "REPEAT" "UNTIL" "GOTO" 
 																	"TYPE" "IN" "WHILE" "DO" "CASE" "PACKED" "ARRAY" "WHILE"
-																	"LABEL" "FOR" "TO" "SET" "ODD" "READLN" "WRITELN" "WRITE")
+																	"LABEL" "FOR" "TO" "SET" "ODD" "READLN" "WRITELN" "WRITE" "SQRT" "++")
 			]
 			(cond
 				(nil? x) (dar-error ['EOF '() [] :sin-errores] 33)
@@ -1209,7 +1261,7 @@
 		anteult-pos (- (count pila) 2)
 	]
 		(cond
-				(or (nil? op) (nil? pila)) (dar-error ['EOF '() [] :sin-errores] 26)
+				(or (nil? op) (nil? pila)) (dar-error ['EOF '() [] :sin-errores] )
 				(and (> (count pila) 1) 
 								 (and (number? anteultimo) (number? ultimo))
 								 (operador-rel-clj? op))
@@ -1361,7 +1413,6 @@
 	  				(or (nil? amb) (nil? ubi)) (dar-error ['EOF '() [] :sin-errores] 1)
 	  				(not= estado :sin-errores) amb
 	  				:else (assoc amb 6 (assoc bytecode ubi ['JMP tamanio]))
-	  											
 	  		)
 	  	)
 )
